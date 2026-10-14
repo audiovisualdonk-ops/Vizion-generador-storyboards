@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Storyboards Vizión</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--azul:#233E73;--amarillo:#FAE200;--claro:#E8F0FA;--txt:#1b2438}
+*{box-sizing:border-box}
+body{margin:0;font-family:Montserrat,Arial,sans-serif;background:#f3f6fb;color:var(--txt)}
+header{background:var(--azul);color:#fff;padding:16px 20px;border-bottom:5px solid var(--amarillo)}
+header h1{margin:0;font-size:20px;letter-spacing:.5px}
+header p{margin:4px 0 0;font-size:12px;opacity:.85}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(35,62,115,.12)}
+.card h2{margin:0 0 10px;font-size:13px;color:var(--azul);text-transform:uppercase;letter-spacing:.6px}
+label{display:block;font-size:11px;font-weight:600;color:var(--azul);margin:8px 0 3px;text-transform:uppercase}
+input,select,textarea{width:100%;padding:8px;border:1px solid #b8c6dd;border-radius:6px;font:inherit;font-size:13px;background:#fff}
+textarea{resize:vertical;min-height:54px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px}
+.tomas{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.toma{border:2px solid var(--azul);border-radius:8px;padding:8px;background:#fbfdff}
+.toma h3{margin:0 0 6px;font-size:12px;background:var(--amarillo);display:inline-block;padding:2px 8px;border-radius:4px;color:var(--azul)}
+.toma canvas,.toma img.prev{width:100%;aspect-ratio:16/9;display:block;border:1px solid #cfd9ea;border-radius:4px;background:#fff;object-fit:cover}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.small{font-size:11px;color:#5a6b8c;margin:4px 0 0}
+button{border:0;border-radius:8px;padding:12px 18px;font:inherit;font-weight:800;cursor:pointer;background:var(--azul);color:#fff}
+button.sec{background:var(--claro);color:var(--azul)}
+button.main{background:var(--amarillo);color:var(--azul);font-size:15px;width:100%;margin-top:6px}
+button:disabled{opacity:.5;cursor:wait}
+#estado{margin-top:10px;font-size:13px}
+#estado a{display:inline-block;margin:4px 10px 0 0;color:#fff;background:var(--azul);padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600}
+.err{color:#b00020;font-weight:600}
+</style>
+</head>
+<body>
+<header>
+  <h1>STORYBOARD · VIZIÓN DE LOS ALTOS</h1>
+  <p>Elige al cliente, escribe tus 8 tomas y genera la hoja de grabación en PDF.</p>
+</header>
+<main>
+  <div class="card">
+    <h2>1 · Cliente</h2>
+    <label>Cliente que ya llenó el formulario</label>
+    <select id="cliente"><option value="">Cargando clientes…</option></select>
+    <div class="row2" style="margin-top:8px">
+      <button class="sec" id="btnCargar" type="button">Cargar sus datos</button>
+      <button class="sec" id="btnRecargar" type="button">↻ Actualizar lista</button>
+    </div>
+    <p class="small" id="msgCliente"></p>
+  </div>
+
+  <div class="card">
+    <h2>2 · Datos (editables)</h2>
+    <div class="grid4">
+      <div><label>Negocio</label><input id="negocio"></div>
+      <div><label>Ciudad</label><input id="ciudad"></div>
+      <div><label>Encargado</label><input id="encargado"></div>
+      <div><label>Teléfono</label><input id="telefono"></div>
+      <div><label>Dirección</label><input id="direccion"></div>
+      <div><label>Redes</label><input id="redes"></div>
+      <div><label>Tipo de video</label>
+        <select id="tipo"><option>Grabación en sitio</option><option>Con tu material</option></select></div>
+      <div><label>Info en pantalla</label>
+        <select id="posicion"><option value="">—</option><option>Barra inferior</option><option>Lateral izquierda</option><option>Lateral derecha</option><option>Centrado</option></select></div>
+      <div><label>Fecha de grabación (opcional)</label><input id="fechaGrabacion" placeholder="dd/mm/aaaa"></div>
+    </div>
+    <label>Lo que escribió el cliente</label>
+    <textarea id="escribio" rows="3"></textarea>
+  </div>
+
+  <div class="card">
+    <h2>3 · Tus 8 tomas</h2>
+    <div class="tomas" id="tomas"></div>
+    <p class="small">Si no subes imagen, la hoja lleva un dibujo esquemático según el tipo de plano. Sin imágenes de IA.</p>
+  </div>
+
+  <button class="main" id="btnGenerar" type="button">GENERAR STORYBOARD (PDF)</button>
+  <div id="estado"></div>
+</main>
+
+<script>
+// Pega aquí la URL de la aplicación web (termina en /exec)
+const API_URL = 'https://script.google.com/macros/s/AKfycbzLECaLl0TwCV5WePSXBp3fVkePfl-6kw9JTixX9qWi9fdhEyNoey1lkX2ol1RdRGKR/exec';
+
+const PLANOS = ['Plano general','Plano medio','Primer plano','Plano detalle','Cenital','Contrapicado','Logo / animación gráfica','Libre'];
+const MOVS = ['Fijo','Paneo','Travelling','Slider','Dron','Cámara en mano'];
+const $ = id => document.getElementById(id);
+const imagenes = Array(8).fill(null);
+
+async function api(accion, extra) {
+  if (API_URL.startsWith('PEGA')) throw new Error('Falta pegar la URL de la app web en index.html');
+  const r = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({accion, ...extra}) });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || 'Error');
+  return j;
+}
+
+/* ---------- dibujo esquemático por tipo de plano ---------- */
+function dibujar(canvas, plano) {
+  const W = canvas.width = 480, H = canvas.height = 270, c = canvas.getContext('2d');
+  c.fillStyle = '#E8F0FA'; c.fillRect(0,0,W,H);
+  const az = '#233E73', am = '#FAE200';
+  c.strokeStyle = az; c.fillStyle = az; c.lineWidth = 5; c.lineCap = 'round';
+  const persona = (x, y, s) => { // cabeza + tronco, s = escala
+    c.beginPath(); c.arc(x, y, 22*s, 0, 7); c.fill();
+    c.beginPath(); c.moveTo(x-45*s, y+110*s); c.quadraticCurveTo(x, y+30*s, x+45*s, y+110*s); c.closePath(); c.fill();
+  };
+  if (plano === 'Plano general') {
+    c.fillStyle = '#cfdcf0'; c.fillRect(0,170,W,100);
+    c.strokeRect(60,70,150,100); c.strokeRect(290,90,120,80);
+    c.fillStyle = az; c.beginPath(); c.arc(250,150,9,0,7); c.fill(); c.fillRect(244,158,12,26);
+  } else if (plano === 'Plano medio') {
+    c.fillStyle = az; persona(240, 80, 1.5);
+  } else if (plano === 'Primer plano') {
+    c.fillStyle = az; c.beginPath(); c.arc(240,135,95,0,7); c.fill();
+    c.fillStyle = '#E8F0FA'; c.beginPath(); c.arc(205,120,12,0,7); c.arc(275,120,12,0,7); c.fill();
+    c.strokeStyle = '#E8F0FA'; c.beginPath(); c.arc(240,150,38,0.2,2.9); c.stroke();
+  } else if (plano === 'Plano detalle') {
+    c.fillStyle = az; c.beginPath(); c.arc(215,125,70,0,7); c.fill();
+    c.strokeStyle = az; c.lineWidth = 12; c.beginPath(); c.arc(215,125,92,0,7); c.stroke();
+    c.beginPath(); c.moveTo(282,192); c.lineTo(350,250); c.stroke();
+  } else if (plano === 'Cenital') {
+    c.strokeRect(80,50,320,170);
+    c.fillStyle = az; c.beginPath(); c.arc(240,135,34,0,7); c.fill();
+    c.strokeStyle = am; c.lineWidth = 6; c.strokeRect(180,95,120,80);
+  } else if (plano === 'Contrapicado') {
+    c.strokeStyle = '#8aa0c8'; c.lineWidth = 3;
+    [[0,270,200,0],[480,270,280,0]].forEach(l => { c.beginPath(); c.moveTo(l[0],l[1]); c.lineTo(l[2],l[3]); c.stroke(); });
+    c.fillStyle = az; c.beginPath(); c.arc(240,70,24,0,7); c.fill();
+    c.beginPath(); c.moveTo(150,270); c.lineTo(190,110); c.lineTo(290,110); c.lineTo(330,270); c.closePath(); c.fill();
+  } else if (plano.startsWith('Logo')) {
+    c.fillStyle = az; c.fillRect(0,0,W,H);
+    c.fillStyle = am; c.font = '800 54px Montserrat, Arial'; c.textAlign = 'center'; c.fillText('LOGO', 240, 150);
+    c.font = '600 18px Montserrat, Arial'; c.fillStyle = '#fff'; c.fillText('ANIMACIÓN GRÁFICA', 240, 190);
+  } else {
+    c.strokeStyle = '#8aa0c8'; c.setLineDash([10,8]); c.strokeRect(20,20,440,230);
+    c.setLineDash([]); c.fillStyle = '#8aa0c8'; c.font = '600 20px Montserrat, Arial'; c.textAlign = 'center'; c.fillText('DIBUJA / PEGA TU IDEA', 240, 140);
+  }
+  c.setLineDash([]);
+}
+
+/* ---------- UI de tomas ---------- */
+function construirTomas() {
+  const cont = $('tomas');
+  for (let i = 0; i < 8; i++) {
+    const d = document.createElement('div'); d.className = 'toma'; d.dataset.i = i;
+    d.innerHTML = `<h3>TOMA ${i+1}</h3>
+      <canvas></canvas><img class="prev" style="display:none" alt="">
+      <div class="row2">
+        <div><label>Plano</label><select class="plano">${PLANOS.map((p,k)=>`<option ${(i===0&&k===6)||(i>0&&k===(i%6))?'selected':''}>${p}</option>`).join('')}</select></div>
+        <div><label>Movimiento</label><select class="mov">${MOVS.map(m=>`<option>${m}</option>`).join('')}</select></div>
+      </div>
+      <label>Qué se graba</label><textarea class="desc" rows="2" maxlength="160" placeholder="Describe la toma"></textarea>
+      <label>Imagen propia (opcional)</label><input type="file" class="file" accept="image/*">`;
+    cont.appendChild(d);
+    const cv = d.querySelector('canvas'), sel = d.querySelector('.plano');
+    dibujar(cv, sel.value);
+    sel.addEventListener('change', () => { if (!imagenes[i]) dibujar(cv, sel.value); });
+    d.querySelector('.file').addEventListener('change', async ev => {
+      const f = ev.target.files[0]; const prev = d.querySelector('.prev');
+      if (!f) { imagenes[i] = null; prev.style.display='none'; cv.style.display='block'; dibujar(cv, sel.value); return; }
+      imagenes[i] = await redimensionar(f); prev.src = imagenes[i]; prev.style.display='block'; cv.style.display='none';
+    });
+  }
+}
+
+function redimensionar(file) {
+  return new Promise(res => {
+    const img = new Image(); img.onload = () => {
+      const c = document.createElement('canvas'); c.width = 640; c.height = 360;
+      const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0,0,640,360);
+      const r = Math.max(640/img.width, 360/img.height); // cubrir 16:9
+      const w = img.width*r, h = img.height*r; x.drawImage(img, (640-w)/2, (360-h)/2, w, h);
+      res(c.toDataURL('image/jpeg', .8));
+    }; img.src = URL.createObjectURL(file);
+  });
+}
+
+/* ---------- clientes ---------- */
+let CLIENTES = [];
+async function cargarClientes() {
+  const sel = $('cliente'); sel.innerHTML = '<option value="">Cargando clientes…</option>';
+  try {
+    CLIENTES = (await api('listarClientes')).clientes;
+    sel.innerHTML = '<option value="">— Elige un cliente —</option>';
+    let grupo = null, mes = null;
+    CLIENTES.forEach((c, k) => {
+      if (c.mes !== mes) { mes = c.mes; grupo = document.createElement('optgroup'); grupo.label = c.mes.toUpperCase(); sel.appendChild(grupo); }
+      const o = document.createElement('option'); o.value = k; o.textContent = c.nombre; grupo.appendChild(o);
+    });
+  } catch (e) { sel.innerHTML = '<option value="">Error al cargar</option>'; $('msgCliente').innerHTML = `<span class="err">${e.message}</span>`; }
+}
+
+async function cargarDatos() {
+  const c = CLIENTES[$('cliente').value]; if (!c) return;
+  $('msgCliente').textContent = 'Buscando su correo…';
+  try {
+    const d = (await api('datosCliente', {clienteId:c.id, nombre:c.nombre})).datos;
+    ['negocio','ciudad','encargado','telefono','direccion','redes','escribio'].forEach(k => $(k).value = d[k] || '');
+    if (!d.negocio) $('negocio').value = c.nombre;
+    if (d.tipo) $('tipo').value = /material/i.test(d.tipo) ? 'Con tu material' : 'Grabación en sitio';
+    if (d.posicion) { const o=[...$('posicion').options].find(x=>x.text.toLowerCase()===d.posicion.toLowerCase()); if(o) $('posicion').value=o.value||o.text; }
+    $('msgCliente').textContent = d.correoEncontrado ? 'Datos cargados del correo. Revísalos y corrige lo que haga falta.' : 'No encontré su correo: llena los datos a mano.';
+  } catch (e) { $('msgCliente').innerHTML = `<span class="err">${e.message}</span>`; }
+}
+
+/* ---------- generar ---------- */
+async function generar() {
+  const c = CLIENTES[$('cliente').value];
+  if (!c) { $('estado').innerHTML = '<span class="err">Elige un cliente primero.</span>'; return; }
+  const btn = $('btnGenerar'); btn.disabled = true; $('estado').textContent = 'Generando… tarda unos segundos.';
+  const tomas = [...document.querySelectorAll('.toma')].map((t, i) => {
+    const plano = t.querySelector('.plano').value;
+    let img = imagenes[i];
+    if (!img) { const cv = document.createElement('canvas'); dibujar(cv, plano); img = cv.toDataURL('image/png'); }
+    return { plano, movimiento: t.querySelector('.mov').value, descripcion: t.querySelector('.desc').value, imagen: img };
+  });
+  const datos = {};
+  ['negocio','ciudad','encargado','telefono','direccion','redes','tipo','posicion','escribio','fechaGrabacion'].forEach(k => datos[k] = $(k).value);
+  try {
+    const r = await api('generar', { clienteId: c.id, datos, tomas });
+    $('estado').innerHTML = `✅ Listo. Se guardó en la carpeta STORYBOARD del cliente.<br>
+      <a href="${r.pdfUrl}" target="_blank">Abrir PDF</a><a href="${r.docUrl}" target="_blank">Abrir Doc editable</a><a href="${r.carpetaUrl}" target="_blank">Abrir carpeta</a>`;
+  } catch (e) { $('estado').innerHTML = `<span class="err">${e.message}</span>`; }
+  btn.disabled = false;
+}
+
+construirTomas(); cargarClientes();
+$('btnCargar').onclick = cargarDatos; $('btnRecargar').onclick = cargarClientes; $('btnGenerar').onclick = generar;
+$('cliente').onchange = cargarDatos;
+</script>
+</body>
+</html>
